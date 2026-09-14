@@ -1,5 +1,6 @@
 import socket
 import threading
+import time
 
 class HTTPRequest:
     #intake for a request
@@ -81,10 +82,10 @@ class HTTPResponse:
 
 class User:
 
-    def __init__(self, source_ip, source_port, bandwidth):
+    def __init__(self, source_ip, source_port, bandwidth = None):
         self.source_ip = source_ip
         self.source_port = source_port
-        self.bandwidth = bandwidth
+        self.bandwidth = bandwidth #in bytes per second
 
 class HTTPServer:
 #server itself
@@ -98,6 +99,7 @@ class HTTPServer:
         self.running = False
 
         self.data_dict = {}
+        self.bandwidth_dict = {}
 
     def start(self):
         #fcn to start the server
@@ -110,10 +112,7 @@ class HTTPServer:
 
         #Tries to bind port, if it cannot, then it returns a runtime error
         try:
-            self.server.bind((
-                self.host, 
-                self.port
-                ))
+            self.server.bind((self.host, self.port))
             #look into OSErrors further
         except OSError:
             self.server.close()
@@ -145,7 +144,7 @@ class HTTPServer:
             try:
                 client, address = self.server.accept()
                 #accepts connection and gathers information about client
-                print(f"\nConnection from {self.address}")
+                print(f"\nConnection from {address}")
 
 
                 #creates a separate thread for each client
@@ -165,10 +164,29 @@ class HTTPServer:
             except Exception as error:
                 print(f"Server error: {error}")
 
+    def measure_bandwidth(self, client):
+        #creates 1mb of data
+        test_data = b"x" * (1024 * 1024)
+        #records start time
+        start_time = time.perf_counter()
+        #sends the data to client(s)
+        client.sendall(test_data)
+        #records time again
+        end_time = time.perf_counter()
+        #calculates elapsed time
+        el_time = end_time - start_time
+        #ensures bandwidth calculation doesn't return an error
+        if el_time == 0:
+            return None
+        
+        bandwidth = len(test_data)/el_time
+        return bandwidth
+
     def handle_client(self, client, address):
         #interprets data and responds to client
 
         try:
+
             #recieve request
             data = client.recv(4096).decode("utf-8")
             #look more into bites, encoding, and decoding
@@ -188,7 +206,7 @@ class HTTPServer:
                 print(f"  {name}: {value}")
 
             #creates response from request (interpreted from HTTPRequest class)
-            response = self.handle_request(request, address)
+            response = self.handle_request(request, address, client)
 
             #send response
             client.sendall(response.build())
@@ -211,11 +229,11 @@ class HTTPServer:
         finally:
             client.close()
 
-    def handle_request(self, request, address):
+    def handle_request(self, request, address, client):
         #decides which method handles its appropriate request
 
         if request.method == "GET":
-            return self.get(request)
+            return self.get(request, client, address)
 
         elif request.method == "POST":
             return self.post(request, address)
@@ -231,16 +249,20 @@ class HTTPServer:
                 }
             )
 
-    def get(self, request):
-
+    def get(self, request, client, address):
+        bandwidth = self.measure_bandwidth(client)
+        self.bandwidth_dict[address[0]] = bandwidth
         response =  HTTPResponse(
-            body = request.body, content_type = "text/html"
+            body = request.body, 
+            content_type = "text/html"
         )
         return response
 
     def post(self, request, address):
+        bandwidth = self.bandwidth_dict[address[0]]
         body_parts = []
-        body_parts = request.body.split(" ", 3)
+        #splits by the spaces inbetween
+        body_parts = request.body.split()
         #for server interface readability
         print("POST body:", request.body)
 
@@ -252,18 +274,19 @@ class HTTPServer:
             )
         
         elif body_parts[0] == "provide":
-            if body_parts[1] in self.data_dict:
-                #searches data_dict for body_parts[1], which contains a dictionary
-                #once that dictionary is found, it adds an object
-                #that object contains the ip address, port #, and bandwidth speed
-                self.data_dict[body_parts[1]].append(User(address[0], address[1],))
-                #add bandwidth later 
+
+            for i in body_parts[1:]:
+                if i in self.data_dict:
+                    #searches data_dict for body_parts[1], which contains a dictionary
+                    #once that list is found, it adds an object
+                    #that object contains the ip address, port #, and bandwidth speed
+                    self.data_dict[i].append(User(address[0], address[1],bandwidth))
                 
 
-            else:
-                #if the dictionary for that data was not already made, it creates a new one
-                self.data_dict[body_parts[1]] = User(address[0], address[1])
-                #add bandwidth later
+                else:
+                    #if a list for that data was not created, it makes one
+                    #a list of objects
+                    self.data_dict[i] = [User(address[0], address[1], bandwidth)]
 
             return HTTPResponse(
 
@@ -295,7 +318,7 @@ class HTTPServer:
                 return HTTPResponse(
 
                     body = "File not found",
-                    status_code = "404",
+                    status_code = 404,
                     status_text = "Not Found"
                 )
 
