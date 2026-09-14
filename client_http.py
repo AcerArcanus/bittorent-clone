@@ -3,7 +3,6 @@ import socket
 
 class HTTPRequest:
     # Creates and encodes HTTP request to send to server
-    # NOTE: encoding/decoding could be omitted?
 
     def __init__(self, req: str, source_ip: str, dest_port: int):
         self.req = req
@@ -19,7 +18,7 @@ class HTTPRequest:
 
     def parse(self):
 
-        # Original attempt
+        # Split input string from req into a list of strings
         lines = self.req.split("\r\n")
 
         # Parse for method, path, and HTTP version
@@ -27,7 +26,7 @@ class HTTPRequest:
         self.method, self.path, self.version = request_line.split(" ")
 
         # Check that HTTP method in request is valid
-        valid_methods = ["GET", "POST", "PUT", "DELETE"]
+        valid_methods = ["GET", "POST"]
         if self.method not in valid_methods:
             raise ValueError(f"{self.method} is not a valid HTTP method for this client")
 
