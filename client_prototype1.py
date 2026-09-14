@@ -19,11 +19,14 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
 #request from server
 #give server a folder of files you want available for transfer
+#continuosly check that file for changes and update the file as needed
+
 
 #info from server 
 #gives user a list of available files to download
 #gives user a list of device(ports and IP's) that have that file
 
+#peer request function?
 
 #Peer Receive function
 #user receives a request from another peer for a file they have
@@ -31,6 +34,33 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
 
 #Peer Send function
+#make a decision given list of available devices with desired file based on bandwith (list will be provided from elsewhere, ignore for now)
 #might need threading to make multing connections 
 #peer prompts user to send file over to peer
 #inputs: filename, port, IP, 
+
+class peerComm:
+    def __init__(self, srcIP, srcPort, fileName): #ip and port would likely be initialized earlier
+        self.srcIP = srcIP
+        self.srcPort = srcPort
+        self.fileName = fileName
+
+        #[insert socket creation code]
+
+    #the device with the best bandwith is passed through this function
+    def peerSend(self, destIP, destPort, fileName):
+        sock.connect((destIP, destPort))
+        try:
+           # Reading file and sending data to server
+            fi = open(fileName, "r")
+            data = fi.read()
+            if not data:
+                break
+            while data:
+                sock.send(str(data).encode())
+                data = fi.read()
+            # File is closed after data is sent
+            fi.close()
+        except IOError:
+            print('You entered an invalid filename!\
+                Please enter a valid name')
