@@ -79,6 +79,13 @@ class HTTPResponse:
         return response.encode("utf-8") + body_bytes
 
 
+class User:
+
+    def __init__(self, source_ip, source_port, bandwidth):
+        self.source_ip = source_ip
+        self.source_port = source_port
+        self.bandwidth = bandwidth
+
 class HTTPServer:
 #server itself
 
@@ -90,7 +97,6 @@ class HTTPServer:
         self.server = None
         self.running = False
 
-        self.address = None
         self.data_dict = {}
 
     def start(self):
@@ -137,17 +143,17 @@ class HTTPServer:
 
         while self.running:
             try:
-                client, self.address = self.server.accept()
+                client, address = self.server.accept()
                 #accepts connection and gathers information about client
                 print(f"\nConnection from {self.address}")
 
 
                 #creates a separate thread for each client
-                client_thread = threading.thread(
+                client_thread = threading.Thread(
                     #name of the fcn thread will run
                     target = self.handle_client,
                     #tuple containing socket & IP address
-                    args = (client, self.address[0])
+                    args = (client, address)
 
                 )
 
@@ -155,13 +161,11 @@ class HTTPServer:
                 client_thread.daemon = True
                 client_thread.start()
 
-                self.handle_client(client)
-
             #shows what error ocurred
             except Exception as error:
                 print(f"Server error: {error}")
 
-    def handle_client(self, client):
+    def handle_client(self, client, address):
         #interprets data and responds to client
 
         try:
@@ -184,7 +188,7 @@ class HTTPServer:
                 print(f"  {name}: {value}")
 
             #creates response from request (interpreted from HTTPRequest class)
-            response = self.handle_request(request)
+            response = self.handle_request(request, address)
 
             #send response
             client.sendall(response.build())
@@ -207,14 +211,14 @@ class HTTPServer:
         finally:
             client.close()
 
-    def handle_request(self, request):
+    def handle_request(self, request, address):
         #decides which method handles its appropriate request
 
         if request.method == "GET":
             return self.get(request)
 
         elif request.method == "POST":
-            return self.post(request)
+            return self.post(request, address)
 
         else:
             #error method not supported message
@@ -234,22 +238,32 @@ class HTTPServer:
         )
         return response
 
-    def post(self, request):
+    def post(self, request, address):
         body_parts = []
         body_parts = request.body.split(" ", 3)
         #for server interface readability
         print("POST body:", request.body)
 
+        if len(body_parts) <2:
+            return HTTPResponse(
+                body = "Invalid POST body",
+                status_code = 400,
+                status_text = "Bad Request"
+            )
         
-        if body_parts[0] == "provide":
+        elif body_parts[0] == "provide":
             if body_parts[1] in self.data_dict:
                 #searches data_dict for body_parts[1], which contains a dictionary
-                #once that dictionary is found, it adds a key value pair containing the ip address and the port #
-                 self.data_dict[body_parts[1]][self.address[0]] = self.address[1]
+                #once that dictionary is found, it adds an object
+                #that object contains the ip address, port #, and bandwidth speed
+                self.data_dict[body_parts[1]].append(User(address[0], address[1],))
+                #add bandwidth later 
+                
 
             else:
                 #if the dictionary for that data was not already made, it creates a new one
-                self.data_dict[body_parts[1]] = {self.address[0] : self.address[1]}
+                self.data_dict[body_parts[1]] = User(address[0], address[1])
+                #add bandwidth later
 
             return HTTPResponse(
 
@@ -275,6 +289,14 @@ class HTTPServer:
                 body = f"{self.data_dict[body_parts[1]]}",
                 status_code = 200, status_text = "OK"
 
+                )
+
+            else:
+                return HTTPResponse(
+
+                    body = "File not found",
+                    status_code = "404",
+                    status_text = "Not Found"
                 )
 
 
