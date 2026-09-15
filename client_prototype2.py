@@ -30,7 +30,7 @@ async def tracker_heartbeat_loop():
         f"POST / HTTP/1.1\r\n"
         f"Host: {TRACKER_HOST}\r\n"
         f"Accept: text/*\r\n"
-        f"Connection: close\r\n"
+        f"Connection: keep_alive\r\n"
         f"\r\n"
         f"provide\r\n"
         )
@@ -48,7 +48,7 @@ async def tracker_heartbeat_loop():
                 f"GET /bandwidth HTTP/1.1\r\n"
                 f"Host: {TRACKER_HOST}\r\n"
                 f"Accept: text/*\r\n"
-                f"Connection: close\r\n"
+                f"Connection: keep_alive\r\n"
                 f"\r\n"
                 )
 
@@ -59,9 +59,6 @@ async def tracker_heartbeat_loop():
             print("[Tracker] GET response:")
             print(response.decode("utf-8"))
 
-            writer.close()
-            await writer.wait_closed()
-
             # Send POST request
             writer.write(heartbeat_payload.encode("utf-8"))
             await writer.drain()
@@ -70,9 +67,6 @@ async def tracker_heartbeat_loop():
             response = await reader.read(1024)
             print("[Tracker] POST response:")
             print(response.decode("utf-8"))
-
-            writer.close()
-            await writer.wait_closed()
 
             # Print a subtle visual indicator or log
             # sys.stdout.write("\n[Tracker] Heartbeat acknowledged.\n\n[Peer Client]$ ")
@@ -186,6 +180,9 @@ async def request_file_from_peer(host: str, port: int, filename: str):
             writer.close()
             await writer.wait_closed()
             print("[*] Connection closed.")
+
+async def depart():
+    pass
 
 def get_terminal_input():
     """Synchronous prompt offloaded to a thread for universal OS support."""
