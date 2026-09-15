@@ -26,17 +26,22 @@ async def tracker_heartbeat_loop():
              if f.is_file() and f.name != ".gitignore"]
 
     # POST/provide request telling tracker who we are and what files we have
+    for file in files:
+        body += f"{file}\r\n"  # store body separately to calculate byte len
+
+    body_bytes = body.encode("utf-8")
+
     heartbeat_payload = (
         f"POST / HTTP/1.1\r\n"
         f"Host: {TRACKER_HOST}\r\n"
         f"Accept: text/*\r\n"
+        f"Content-Length: {len(body_bytes)}\r\n"
         f"Connection: keep_alive\r\n"
         f"\r\n"
         f"provide\r\n"
         )
 
-    for file in files:
-        heartbeat_payload += f"{file}\r\n"
+    heartbeat_payload += body
 
     while True:
         try:
