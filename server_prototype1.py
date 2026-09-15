@@ -220,7 +220,8 @@ class HTTPServer:
             response = self.handle_request(request, address, client)
 
             #send response
-            client.sendall(response.build())
+            if response is not None:
+                client.sendall(response.build())
 
         #if an error occurs, responds with error message
         except Exception as error:
@@ -259,9 +260,11 @@ class HTTPServer:
             )
 
     def get(self, request, client, address):
-        bandwidth = self.measure_bandwidth(client)
+        if request.path == "/bandwidth":
 
-        self.bandwidth_dict[address] = bandwidth
+            bandwidth = self.measure_bandwidth(client)
+            self.bandwidth_dict[address] = bandwidth
+            return None
 
         response =  HTTPResponse(
             body = request.body,
@@ -271,7 +274,14 @@ class HTTPServer:
 
     def post(self, request, address):
         #matches IP to bandwidth
-        bandwidth = self.bandwidth_dict[address]
+        #.get helps to avoid an error if that address isn't in the dict
+        bandwidth = self.bandwidth_dict.get(address)
+
+        if bandwidth == None:
+            return HTTPResponse(
+                body = "Bandwidth has not been calculated",
+                status_code = 400, status_text = "Bad Request"
+            )
 
         #splits by the new line
         body_parts = request.body.split("\r\n")
