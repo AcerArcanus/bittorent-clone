@@ -5,7 +5,7 @@ import time
 class HTTPRequest:
     #intake for a request
 
-    #raw_data are the raw bits being sent
+    #raw_data has the HTTP request as a string
     def __init__(self, raw_data):
         self.raw_data = raw_data
         self.method = None
@@ -47,13 +47,13 @@ class HTTPRequest:
 class HTTPResponse:
     #creates HTTP response
 
-    def __init__(self, body, status_code=200, status_text="OK", content_type="text/plain", headers=None):
+    def __init__(self, body, status_code = 200, status_text = "OK", content_type = "text/plain", headers=None):
         self.body = body
         self.status_code = status_code
         self.status_text = status_text
         self.content_type = content_type
         self.headers = headers or {}
-        #doing this so a new dictionary is made every time it is ran
+        #dictionary is made if no header is provided
 
     def build(self):
         #builds HTTP response string
@@ -72,7 +72,7 @@ class HTTPResponse:
             f"Content-Length: {len(body_bytes)}\r\n"
             "Connection: close\r\n"
         )
-        #for loop separates the headers
+        #adds each header to response
         for name, value in self.headers.items():
             response += f"{name}: {value}\r\n"
         #headers get placed here
@@ -131,7 +131,7 @@ class HTTPServer:
             )
 
         self.server.listen(self.backlog)
-        #ensure it runs continuously
+        #listens for requests
 
         self.running = True
 
@@ -173,14 +173,19 @@ class HTTPServer:
     def measure_bandwidth(self, client):
         #creates 1mb of data
         test_data = b"x" * (1024 * 1024)
+
         #records start time
         start_time = time.perf_counter()
+
         #sends the data to client(s)
         client.sendall(test_data)
+
         #records time again
         end_time = time.perf_counter()
+
         #calculates elapsed time
         el_time = end_time - start_time
+
         #ensures bandwidth calculation doesn't return an error
         if el_time == 0:
             return None
@@ -222,16 +227,14 @@ class HTTPServer:
             print(f"Request error: {error}")
 
             response = HTTPResponse(
-                body="Internal Server Error",
-                status_code=500,
-                status_text="Internal Server Error"
+                body = "Internal Server Error",
+                status_code = 500, status_text = "Internal Server Error"
             )
 
             #sends error message
             client.sendall(response.build())
 
-        #finally is used to catch and present all error messages that were made
-        #closes client
+        #closes connection when finished with client
         finally:
             client.close()
 
@@ -248,16 +251,18 @@ class HTTPServer:
             #error method not supported message
             return HTTPResponse(
                 body=f"Method {request.method} is not supported",
-                status_code=405,
-                status_text="Method Not Allowed",
-                headers={
+                status_code = 405,
+                status_text = "Method Not Allowed",
+                headers = {
                     "Allow": "GET, POST"
                 }
             )
 
     def get(self, request, client, address):
         bandwidth = self.measure_bandwidth(client)
-        self.bandwidth_dict[address[0]] = bandwidth
+
+        self.bandwidth_dict[address] = bandwidth
+
         response =  HTTPResponse(
             body = request.body,
             content_type = "text/html"
@@ -266,27 +271,36 @@ class HTTPServer:
 
     def post(self, request, address):
         #matches IP to bandwidth
-        bandwidth = self.bandwidth_dict[address[0]]
-        body_parts = []
-        #splits by the spaces inbetween
-        body_parts = request.body.split()
+        bandwidth = self.bandwidth_dict[address]
+
+        #splits by the new line
+        body_parts = request.body.split("\r\n")
+
         #for server interface readability
         print("POST body:", request.body)
 
-        if len(body_parts) <2:
+        #ensures there is at least something in body_parts
+        if body_parts[0] == "":
             return HTTPResponse(
                 body = "Invalid POST body",
-                status_code = 400,
-                status_text = "Bad Request"
+                status_code = 400, status_text = "Bad Request"
             )
 
         elif body_parts[0] == "provide":
 
+            #in case it has less than 2 parameters in body_parts
+            if len(body_parts) < 2:
+                return HTTPResponse(
+                    body = "No filename provided",
+                    status_code = 400, status_text = "Bad Request"
+                )
+
             for i in body_parts[1:]:
                 if i in self.data_dict:
-                    #searches data_dict for body_parts[1], which contains a dictionary
-                    #once that list is found, it adds an object
-                    #that object contains the ip address, port #, and bandwidth speed
+
+                    #checks whether filename exists in self.data_dict
+                    #once that filename is found, it adds the user object to that list
+                    #that object contains the IP address, port #, and bandwidth speed
                     self.data_dict[i].append(User(address[0], address[1],bandwidth))
 
 
@@ -303,9 +317,13 @@ class HTTPServer:
         )
 
         #requesting list of data
-        elif body_parts[0] == "request" and body_parts[1] == "list":
+        #ensures it has at least 2 parameters in body_parts
+        elif len(body_parts) >= 2 and body_parts[0] == "request" and body_parts[1] == "list":
+
+
             #joins the data keys by adding , inbetween
             file_names = ", ".join(self.data_dict.keys())
+
             return HTTPResponse(
                 #returns only keys in the dict (file names)
                 body = f"{file_names}",
@@ -314,19 +332,23 @@ class HTTPServer:
             )
 
         elif body_parts[0] == "depart":
+            #IP and port of departing client
             client_ip = address[0]
+            client_port = address[1]
 
             #make a separate list of keys to delete from, allowing for safe deletion of dict keys
             for i in list(self.data_dict.keys()):
-                #for each user in a list of users for this file, place that user in a new list
-                #places users in that list if the IP doesn't match the client sending the request
-                self.data_dict[i] = [user for user in self.data_dict[i] if user.source_ip != client_ip]
-                #deletes file list if it is empty
+
+                #keep only users that don't match departing client's IP & port
+                self.data_dict[i] = [user for user in self.data_dict[i] if 
+                    not (user.source_ip == client_ip and user.source_port == client_port)]
+
+            #delete file if no client provides it anymore
                 if not self.data_dict[i]:
                     del self.data_dict[i]
 
             return HTTPResponse(
-                body = f"Departed successfully",
+                body = "Departed successfully",
                 status_code = 200, status_text = "OK"
             )
 
@@ -335,7 +357,15 @@ class HTTPServer:
         #if the software that is requested is in the dictionary
         #it will respond with the dictionary objects that contain the IP, port, and bandwidth
         else:
-            if body_parts [1] in self.data_dict:
+
+            #in case it has less than 2 parameters in body_parts
+            if len(body_parts) < 2:
+                return HTTPResponse(
+                    body = "No filename provided",
+                    status_code = 400, status_text = "Bad request"
+                )
+            
+            elif body_parts [1] in self.data_dict:
                 return HTTPResponse(
 
                 body = f"{self.data_dict[body_parts[1]]}",
@@ -347,8 +377,7 @@ class HTTPServer:
                 return HTTPResponse(
 
                     body = "File not found",
-                    status_code = 404,
-                    status_text = "Not Found"
+                    status_code = 404, status_text = "Not Found"
                 )
 
 
