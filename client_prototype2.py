@@ -1,6 +1,7 @@
 import asyncio
 import sys
 import json
+from pathlib import Path
 
 import client_http
 
@@ -21,6 +22,10 @@ async def tracker_heartbeat_loop():
     Runs continuously without interrupting network handling or terminal inputs.
     """
     print(f"[*] Heartbeat task started. Tracking with {TRACKER_HOST}:{TRACKER_PORT}")
+
+    # Grab list of files from file-transfer directory
+    files = [f.name for f in Path("file-transfer").iterdir()
+             if f.is_file() and f.name != ".gitignore"]
 
     # Payload telling the tracker who we are and what port we are listening on
     heartbeat_payload = {
