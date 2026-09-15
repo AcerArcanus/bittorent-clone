@@ -78,13 +78,13 @@ async def tracker_heartbeat_loop():
             # sys.stdout.write("\n[Tracker] Heartbeat acknowledged.\n\n[Peer Client]$ ")
             # sys.stdout.flush()
 
-        except (ConnectionRefusedError, OSError):
-            # Fail silently or log so a down tracker doesn't crash the client
-            sys.stdout.write("\n[Tracker Error] Tracker offline. Retrying next cycle...\n\n[Peer Client]$ ")
-            sys.stdout.flush()
+            # Sleep asynchronously for the designated interval
+            await asyncio.sleep(HEARTBEAT_INTERVAL)
 
-        # Sleep asynchronously for the designated interval
-        await asyncio.sleep(HEARTBEAT_INTERVAL)
+    except (ConnectionRefusedError, OSError):
+        # Fail silently or log so a down tracker doesn't crash the client
+        sys.stdout.write("\n[Tracker Error] Tracker offline. Retrying next cycle...\n\n[Peer Client]$ ")
+        sys.stdout.flush()
 
 async def request_list():
     # POST/request request asking for list of files from tracker
