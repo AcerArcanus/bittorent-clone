@@ -340,7 +340,7 @@ class HTTPServer:
             for i in list(self.data_dict.keys()):
 
                 #keep only users that don't match departing client's IP & port
-                self.data_dict[i] = [user for user in self.data_dict[i] if 
+                self.data_dict[i] = [user for user in self.data_dict[i] if
                     not (user.source_ip == client_ip and user.source_port == client_port)]
 
             #delete file if no client provides it anymore
@@ -364,7 +364,7 @@ class HTTPServer:
                     body = "No filename provided",
                     status_code = 400, status_text = "Bad request"
                 )
-            
+
             elif body_parts [1] in self.data_dict:
                 return HTTPResponse(
 
@@ -381,6 +381,6 @@ class HTTPServer:
                 )
 
 
-
-server = HTTPServer()
-server.start()
+if __name__ == "__main__":
+    server = HTTPServer()
+    server.start()

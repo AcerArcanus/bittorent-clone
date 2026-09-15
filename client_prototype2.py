@@ -3,13 +3,13 @@ import sys
 import json
 from pathlib import Path
 
-import client_http
+# import client_http as http
 
 HOST = '0.0.0.0'            # Local server bind address
 PORT = 8888                 # Local server listening port
 TRACKER_HOST = '127.0.0.1'  # Tracker server address
-TRACKER_PORT = 9999         # Tracker server port
-HEARTBEAT_INTERVAL = 30     # Send a heartbeat every 30 seconds
+TRACKER_PORT = 8080         # Tracker server port
+HEARTBEAT_INTERVAL = 3     # Send a heartbeat every 30 seconds
 
 async def tracker_heartbeat_loop():
     # TODO: code here is designed to work with json messages;
@@ -27,20 +27,29 @@ async def tracker_heartbeat_loop():
     files = [f.name for f in Path("file-transfer").iterdir()
              if f.is_file() and f.name != ".gitignore"]
 
-    # Payload telling the tracker who we are and what port we are listening on
-    heartbeat_payload = {
-        "action": "heartbeat",
-        "peer_port": PORT
-    }
+    # POST/provide request telling tracker who we are and what files we have
+    heartbeat_payload = (
+        f"POST / HTTP/1.1\r\n"
+        f"Host: {TRACKER_HOST}\r\n"
+        f"Accept: text/*\r\n"
+        f"Connection: close\r\n"
+        f"\r\n"
+        f"provide\r\n"
+        )
 
-    message = (json.dumps(heartbeat_payload) + "\n").encode()
+    for file in files:
+        heartbeat_payload += f"{file}\r\n"
+
+    # Create HTTP request to send to tracker
+    # message = http.HTTPRequest(heartbeat_payload, HOST, PORT)
+    # message = (json.dumps(heartbeat_payload) + "\n").encode()
 
     while True:
         try:
             # Open a connection to send the heartbeat
             reader, writer = await asyncio.open_connection(TRACKER_HOST, TRACKER_PORT)
 
-            writer.write(message)
+            writer.write(heartbeat_payload)
             await writer.drain()
 
             # Optional: Read tracker acknowledgment response
