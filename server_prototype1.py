@@ -180,22 +180,7 @@ class HTTPServer:
             except Exception as error:
                 print(f"Server error: {error}")
 
-    def measure_bandwidth(self, client):
-        #creates 1mb of data
-        test_data = b"x" * (1024 * 1024)
-
-        #records start time
-        start_time = time.perf_counter()
-
-        #sends the data to client(s)
-        client.sendall(test_data)
-
-        #records time again
-        end_time = time.perf_counter()
-
-        #calculates elapsed time
-        el_time = end_time - start_time
-
+    def measure_bandwidth(self, test_data, el_time):
         #ensures bandwidth calculation doesn't return an error
         if el_time == 0:
             return None
@@ -232,12 +217,17 @@ class HTTPServer:
                 #decode only the headers
                 header_text = header_bytes.decode("utf-8")
 
-                content_length = 0
+                content_length = None
 
+                #finds the content length parameter
+                #only needed for POST
                 for line in header_text.split("\r\n"):
                     if line.lower().startswith("content-length:"):
                         content_length = int(line.split(":", 1)[1].strip())
                         break
+
+                if content_length is None:
+                    content_length = 0
 
                 #calculate the bytes used to make the request
                 request_length = header_end + 4 + content_length
@@ -275,7 +265,22 @@ class HTTPServer:
 
                 #send response
                 if response is not None:
-                    client.sendall(response.build())
+                    #bandwidth test is performed here
+                    if request.path == "/bandwidth":
+                        start_time = time.perf_counter()
+
+                        response_bytes = response.build()
+                        client.sendall(response_bytes)
+
+                        end_time = time.perf_counter()
+
+                        el_time = end_time - start_time
+
+                        bandwidth = self.measure_bandwidth(response.body, el_time)
+                        self.bandwidth_dict[address] = bandwidth
+
+                    else:
+                        client.sendall(response.build())
 
                 #check if client requests to close the connection
                 connection_header = request.headers.get("Connection", "").lower()
@@ -327,9 +332,12 @@ class HTTPServer:
     def get(self, request, client, address):
         if request.path == "/bandwidth":
 
-            bandwidth = self.measure_bandwidth(client)
-            self.bandwidth_dict[address] = bandwidth
-            return None
+            test_data = b"x" * (102 * 102)
+            response = HTTPResponse(
+                body = test_data,
+                content_type = "application/octet-stream"
+            )
+            return response
 
         response =  HTTPResponse(
             body = request.body,
@@ -376,7 +384,7 @@ class HTTPServer:
                     #checks whether filename exists in self.data_dict
                     #once that filename is found, it adds the user object to that list
                     #that object contains the IP address, port #, and bandwidth speed
-                    self.data_dict[i].append(User(address[0], address[1],bandwidth))
+                    self.data_dict[i].append(User(address[0], address[1], bandwidth))
 
 
                 else:
@@ -411,7 +419,7 @@ class HTTPServer:
             client_ip = address[0]
             client_port = address[1]
 
-            #make a separate list of keys to delete from, allowing for safe deletion of dict keys
+            #make a temp list of keys to delete from, allowing for safe deletion of dict keys
             for i in list(self.data_dict.keys()):
 
                 #keep only users that don't match departing client's IP & port
