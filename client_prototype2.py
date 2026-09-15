@@ -55,7 +55,7 @@ async def tracker_heartbeat_loop():
             writer.write(get_req.encode("utf-8"))
             await writer.drain()
 
-            response = await reader.read(4096)
+            response = await reader.read(-1)
             print("[Tracker] GET response:")
             print(response.decode("utf-8"))
 
@@ -64,7 +64,7 @@ async def tracker_heartbeat_loop():
             await writer.drain()
 
             # Optional: Read tracker acknowledgment response (for debugging)
-            response = await reader.read(4096)
+            response = await reader.read(-1)
             print("[Tracker] POST response:")
             print(response.decode("utf-8"))
 
@@ -101,7 +101,7 @@ async def request_list():
             await writer.drain()
 
             # Optional: Read tracker acknowledgment response (for debugging)
-            response = await reader.read(1024)
+            response = await reader.read(-1)
             print(response.decode("utf-8"))
 
             writer.close()
@@ -126,8 +126,8 @@ async def handle_peer_connection(reader: asyncio.StreamReader, writer: asyncio.S
     print(f"\n[Network Event] Peer connected from: {peer_address}")
 
     try:
-        # Read the file request from the peer (up to 1024 bytes)
-        data = await reader.read(1024)
+        # Read the file request from the peer
+        data = await reader.read(-1)
         filename = data.decode().strip()
         print(f"[Network Event] Peer requested file: '{filename}'")
 
@@ -161,9 +161,9 @@ async def request_file_from_peer(host: str, port: int, filename: str):
         writer.write(f"{filename}\n".encode())
         await writer.drain()  # Ensure data is flushed through the network socket
 
-        # Read the peer's response stream (up to 4096 bytes)
+        # Read the peer's response stream
         print("[*] Waiting for peer response...")
-        response = await reader.read(4096)
+        response = await reader.read(-1)
 
         if response:
             print(f"\n[Peer Response]:\n{response.decode().strip()}")
