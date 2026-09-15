@@ -91,7 +91,7 @@ class peerComm:
 
         
     #send a request to the peer that has the file with the best bandwith, 
-    def sendPeerRequest(self):
+    #def sendPeerRequest(self):
         #take in list of devices that have desired file, pick the one with the best bandwith?
         #send a request to the chosen peer, prompting them to send the file back, send message with your port and ip
         #run peerReceive()
@@ -110,12 +110,12 @@ class peerComm:
 
 
 
-    def receivePeerRequest(self):
+   # def receivePeerRequest(self):
         #listen for requests to your socket
         #requests would give you parameters to run peerSend()
         #send file
 
-         def receivePeerRequest(self):
+    def receivePeerRequest(self):
         # bind clients socket to its IP address and port
         sock.bind((self.srcIP, self.srcPort))
         # start listening for incoming peer requests
