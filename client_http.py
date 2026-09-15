@@ -52,11 +52,7 @@ class HTTPRequest:
     def send_req(self):
         # Create TCP/IPv4 socket to communicate with server
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
-            # Bind socket to IP and port
-            # NOTE: appears to be redundant on the client side; just needs to connect
-            # client_socket.bind((self.source_ip, self.dest_port))
-
-            # Connect to server using destination IP
+            # Connect to server/peer using destination IP
             client_socket.connect(self.destination)
 
             # Send the HTTP request
