@@ -26,14 +26,14 @@ async def tracker_heartbeat_loop():
 
     # Send GET request to measure bandwidth
     req = (
-        f"GET / HTTP/1.1\r\n"
+        f"GET /bandwidth HTTP/1.1\r\n"
         f"Host: {TRACKER_HOST}\r\n"
         f"Accept: text/*\r\n"
         f"Connection: close\r\n"
         f"\r\n"
         )
 
-    get_req = http.HTTPRequest(req, HOST, PORT)
+    get_req = http.HTTPRequest(req, HOST, TRACKER_PORT)
     get_req.send_req()
 
     # Grab list of files from file-transfer directory
