@@ -2,6 +2,8 @@ import asyncio
 import sys
 import json
 
+import client_http
+
 HOST = '0.0.0.0'            # Local server bind address
 PORT = 8888                 # Local server listening port
 TRACKER_HOST = '127.0.0.1'  # Tracker server address
