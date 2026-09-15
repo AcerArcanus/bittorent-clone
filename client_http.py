@@ -1,7 +1,9 @@
-import sys      # Used so client can read from stdin
+import sys                                  # Used so client can read from stdin
 import socket
 
-class HTTPRequest:
+from server_prototype1 import HTTPResponse  # to inherit Response class
+
+class Client_HTTPRequest:
     # Creates and encodes HTTP request to send to server or other peers
 
     def __init__(self, req: str, source_ip: str, dest_port: int):
@@ -69,10 +71,13 @@ class HTTPRequest:
             # Decode and return response
             return response.decode("utf-8")
 
+class Client_HTTPResponse(HTTPResponse):
+    pass
+
 if __name__ == "__main__":
     # Declare source IP and outgoing port variables here manually
     source_ip = "127.0.0.1"
     port = 7787
 
-    req = HTTPRequest(sys.stdin.read(), source_ip, port)
+    req = Client_HTTPRequest(sys.stdin.read(), source_ip, port)
     print(req.send_req())

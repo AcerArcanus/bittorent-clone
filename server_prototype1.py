@@ -19,7 +19,7 @@ class HTTPRequest:
     def parse(self):
         #separates headers from body
         parts = self.raw_data.split("\r\n\r\n", 1)
-        
+
         header_data = parts[0]
 
         #check for a body
@@ -28,7 +28,7 @@ class HTTPRequest:
         else:
             self.body = ""
 
-        #separates headers from eachother    
+        #separates headers from eachother
         lines = header_data.split("\r\n")
 
         #parses the request, specifically the first line containing the method, path, and version
@@ -123,7 +123,7 @@ class HTTPServer:
                 f"Could not start server on {self.host}:{self.port}. "
                 "The port may already be in use."
             )
-        
+
         self.server.listen(self.backlog)
         #ensure it runs continuously
 
@@ -178,7 +178,7 @@ class HTTPServer:
         #ensures bandwidth calculation doesn't return an error
         if el_time == 0:
             return None
-        
+
         bandwidth = len(test_data)/el_time
         return bandwidth
 
@@ -253,7 +253,7 @@ class HTTPServer:
         bandwidth = self.measure_bandwidth(client)
         self.bandwidth_dict[address[0]] = bandwidth
         response =  HTTPResponse(
-            body = request.body, 
+            body = request.body,
             content_type = "text/html"
         )
         return response
@@ -272,7 +272,7 @@ class HTTPServer:
                 status_code = 400,
                 status_text = "Bad Request"
             )
-        
+
         elif body_parts[0] == "provide":
 
             for i in body_parts[1:]:
@@ -281,7 +281,7 @@ class HTTPServer:
                     #once that list is found, it adds an object
                     #that object contains the ip address, port #, and bandwidth speed
                     self.data_dict[i].append(User(address[0], address[1],bandwidth))
-                
+
 
                 else:
                     #if a list for that data was not created, it makes one
@@ -290,13 +290,13 @@ class HTTPServer:
 
             return HTTPResponse(
 
-                body = f"Added to user list for {body_parts[1]}", 
+                body = f"Added to user list for {body_parts[1]}",
                 status_code = 201, status_text = "Created",
 
         )
 
         #requesting list of data
-        elif body_parts[0] == "request" and body_parts[1] == "list": 
+        elif body_parts[0] == "request" and body_parts[1] == "list":
             return HTTPResponse(
 
                 body = f"{self.data_dict}",
@@ -323,5 +323,6 @@ class HTTPServer:
                 )
 
 
-server = HTTPServer()
-server.start()
+if __name__ == "__main__":
+    server = HTTPServer()
+    server.start()
