@@ -26,6 +26,7 @@ async def tracker_heartbeat_loop():
              if f.is_file() and f.name != ".gitignore"]
 
     # POST/provide request telling tracker who we are and what files we have
+    body = ""
     for file in files:
         body += f"{file}\r\n"  # store body separately to calculate byte len
 
