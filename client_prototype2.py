@@ -1,6 +1,5 @@
 import asyncio
 import sys
-import json
 from pathlib import Path
 
 import client_http as http
@@ -13,9 +12,6 @@ TRACKER_PORT = 8080         # Tracker server port
 HEARTBEAT_INTERVAL = 30     # Send a heartbeat every 30 seconds
 
 async def tracker_heartbeat_loop():
-    # TODO: code here is designed to work with json messages;
-    #       this should be changed to work with HTTP instead
-    #
     # During the heartbeat, send a POST/provide request to tell the server
     # files available for download from the client
     """
@@ -41,10 +37,6 @@ async def tracker_heartbeat_loop():
 
     for file in files:
         heartbeat_payload += f"{file}\r\n"
-
-    # Create HTTP request to send to tracker
-    # message = http.HTTPRequest(heartbeat_payload, HOST, PORT)
-    # message = (json.dumps(heartbeat_payload) + "\n").encode()
 
     while True:
         try:
