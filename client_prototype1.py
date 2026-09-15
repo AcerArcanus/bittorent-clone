@@ -96,7 +96,76 @@ class peerComm:
         #send a request to the chosen peer, prompting them to send the file back, send message with your port and ip
         #run peerReceive()
     
+    """
+    def sendPeerRequest(self, destIP, destPort):
+        # ---------------------------------------------------------
+        # This peer wants to request a file from another peer.
+        #
+        # destIP and destPort identify the peer that has the file.
+        # srcIP and srcPort identify this peer.
+        # ---------------------------------------------------------
+
+        # Connect to the peer that has the requested file
+        self.socket.connect((destIP, destPort))
+
+        # Create a request containing:
+        # - The name of the file we want
+        # - Our IP address
+        # - Our port number
+        request = f"{self.fileName}|{self.srcIP}|{self.srcPort}"
+
+        # Convert the request to bytes and send it to the peer
+        self.socket.sendall(request.encode())
+
+        # Close the connection used to send the request
+        self.socket.close()
+
+        # Receive the requested file from the peer
+        self.peerReceive(destIP, destPort)  
+    """
+
+
     def receivePeerRequest(self):
         #listen for requests to your socket
         #requests would give you parameters to run peerSend()
         #send file
+
+        """
+         def receivePeerRequest(self):
+        
+        # Bind this peer's socket to its IP address and port
+        self.socket.bind((self.srcIP, self.srcPort))
+
+        # Start listening for incoming peer requests
+        self.socket.listen()
+
+        print("Waiting for peer requests...")
+
+        while True:
+
+            # Accept a connection from another peer
+            connection, address = self.socket.accept()
+
+            # Receive the request and convert it from bytes to text
+            request = connection.recv(1024).decode()
+
+            # The request contains:
+            # fileName | requesting peer IP | requesting peer port
+            requestedFile, destIP, destPort = request.split("|")
+
+            print("File requested:", requestedFile)
+            print("Sending to:", destIP, destPort)
+
+            # Close the connection used for the request
+            connection.close()
+
+            # Send the requested file to the requesting peer
+            self.peerSend(
+                destIP,
+                int(destPort),
+                requestedFile
+            )
+        
+        
+        
+        """
