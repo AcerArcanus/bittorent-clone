@@ -33,7 +33,7 @@ class HTTPRequest:
 
         #parses the request, specifically the first line containing the method, path, and version
         request_line = lines[0]
-        self.method, self.path, self.version = request_line.split(" ")
+        self.method, self.path, self.version = request_line.split(" ", 2)
 
         #splits headers, stored into dictionary self.headers
         for line in lines[1:]:
@@ -47,12 +47,17 @@ class HTTPRequest:
 class HTTPResponse:
     #creates HTTP response
 
-    def __init__(self, body, status_code = 200, status_text = "OK", content_type = "text/plain", headers=None):
+    def __init__(
+            self, body, status_code = 200, status_text = "OK", 
+                 content_type = "text/plain", headers=None,
+                 keep_alive = True
+                 ):
         self.body = body
         self.status_code = status_code
         self.status_text = status_text
         self.content_type = content_type
         self.headers = headers or {}
+        self.keep_alive = keep_alive
         #dictionary is made if no header is provided
 
     def build(self):
@@ -65,17 +70,22 @@ class HTTPResponse:
             body_bytes = self.body
             #only if it's already bytes
 
+        connection = "keep_alive" if self.keep_alive else "close"
+
         #creates the response from variables, can vary depending on situation
         response = (
             f"HTTP/1.1 {self.status_code} {self.status_text}\r\n"
             f"Content-Type: {self.content_type}\r\n"
             f"Content-Length: {len(body_bytes)}\r\n"
-            "Connection: close\r\n"
+            f"Connection: {connection}\r\n"
         )
         #adds each header to response
         for name, value in self.headers.items():
             response += f"{name}: {value}\r\n"
         #headers get placed here
+
+        #blank line between header and body
+        response += "\r\n"
 
         return response.encode("utf-8") + body_bytes
 
@@ -197,31 +207,84 @@ class HTTPServer:
         #interprets data and responds to client
 
         try:
+            buffer = b""
 
-            #recieve request
-            data = client.recv(4096).decode("utf-8")
-            #look more into bites, encoding, and decoding
+            while True:
+                #ensures you recieve one whole HTTP request
+                while b"\r\n\r\n" not in buffer:
 
-            #return nothing if no data is recieved
-            if not data:
-                return
 
-            #parse request using HTTPRequest class
-            request = HTTPRequest(data)
+                    #recieve request
+                    data = client.recv(4096)
+                    
 
-            #just for show and server side readability
-            print(f"Request: {request}")
+                    #return nothing if no data is recieved
+                    if not data:
+                        return
 
-            print("Headers:")
-            for name, value in request.headers.items():
-                print(f"  {name}: {value}")
+                    buffer += data
 
-            #creates response from request (interpreted from HTTPRequest class)
-            response = self.handle_request(request, address, client)
+                #find where the headers end
+                header_end = buffer.find(b"\r\n\r\n")
 
-            #send response
-            if response is not None:
-                client.sendall(response.build())
+                header_bytes = buffer[:header_end + 4]
+
+                #decode only the headers
+                header_text = header_bytes.decode("utf-8")
+
+                content_length = 0
+
+                for line in header_text.split("\r\n"):
+                    if line.lower().startswith("content-length:"):
+                        content_length = int(line.split(":", 1)[1].strip())
+                        break
+
+                #calculate the bytes used to make the request
+                request_length = header_end + 4 + content_length
+
+                #retrieves the rest of the request
+                while len(buffer) < request_length:
+                    data = client.recv(4096)
+
+                    if not data:
+                        return
+
+                    buffer += data
+
+                #contains exactly one HTTP request
+                request_bytes = buffer[:request_length]
+
+                #anything in the next request is left in the buffer
+                buffer = buffer[request_length:]
+
+                request_data = request_bytes.decode("utf-8")
+
+                #parse request using HTTPRequest class
+                request = HTTPRequest(request_data)
+
+                #just for show and server side readability
+                print(f"Request from: {address}")
+                print(f"Request line: {request.method} {request.path} {request.version}")
+
+                print("Headers:")
+                for name, value in request.headers.items():
+                    print(f"  {name}: {value}")
+
+                #creates response from request (interpreted from HTTPRequest class)
+                response = self.handle_request(request, address, client)
+
+                #send response
+                if response is not None:
+                    client.sendall(response.build())
+
+                #check if client requests to close the connection
+                connection_header = request.headers.get("Connection", "").lower()
+
+                if connection_header == "close":
+                    break
+
+        except ConnectionResetError:
+            print(f"Client {address} disconnection")
 
         #if an error occurs, responds with error message
         except Exception as error:
@@ -229,7 +292,8 @@ class HTTPServer:
 
             response = HTTPResponse(
                 body = "Internal Server Error",
-                status_code = 500, status_text = "Internal Server Error"
+                status_code = 500, status_text = "Internal Server Error",
+                keep_alive = False
             )
 
             #sends error message
@@ -238,6 +302,7 @@ class HTTPServer:
         #closes connection when finished with client
         finally:
             client.close()
+            print(f"Connection closed: {address}")
 
     def handle_request(self, request, address, client):
         #decides which method handles its appropriate request
