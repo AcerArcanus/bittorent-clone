@@ -49,11 +49,12 @@ async def tracker_heartbeat_loop():
             # Open a connection to send the heartbeat
             reader, writer = await asyncio.open_connection(TRACKER_HOST, TRACKER_PORT)
 
-            writer.write(heartbeat_payload)
+            writer.write(heartbeat_payload.encode("utf-8"))
             await writer.drain()
 
-            # Optional: Read tracker acknowledgment response
+            # Optional: Read tracker acknowledgment response (for debugging)
             response = await reader.read(1024)
+            print(response.decode("utf-8"))
 
             writer.close()
             await writer.wait_closed()
