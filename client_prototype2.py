@@ -44,28 +44,28 @@ async def tracker_heartbeat_loop():
 
     heartbeat_payload += body
 
-    while True:
-        try:
-            # Open a connection to send the heartbeat
-            reader, writer = await asyncio.open_connection(TRACKER_HOST, TRACKER_PORT)
+    try:
+        # Open a connection to send the heartbeat
+        reader, writer = await asyncio.open_connection(TRACKER_HOST, TRACKER_PORT)
 
-            # Send GET request to measure bandwidth
-            get_req = (
-                f"GET /bandwidth HTTP/1.1\r\n"
-                f"Host: {TRACKER_HOST}\r\n"
-                f"Accept: text/*\r\n"
-                f"Connection: keep_alive\r\n"
-                f"\r\n"
-                )
+        # Send GET request to measure bandwidth
+        get_req = (
+            f"GET /bandwidth HTTP/1.1\r\n"
+            f"Host: {TRACKER_HOST}\r\n"
+            f"Accept: text/*\r\n"
+            f"Connection: keep_alive\r\n"
+            f"\r\n"
+            )
 
-            writer.write(get_req.encode("utf-8"))
-            await writer.drain()
+        writer.write(get_req.encode("utf-8"))
+        await writer.drain()
 
-            response = await reader.read(1073152)
-            print("[Tracker] GET response:")
-            print(response.decode("utf-8"))
+        response = await reader.read(1073152)
+        print("[Tracker] GET response:")
+        print(response.decode("utf-8"))
 
-            # Send POST request
+        # Send POST request in while loop
+        while True:
             writer.write(heartbeat_payload.encode("utf-8"))
             await writer.drain()
 
