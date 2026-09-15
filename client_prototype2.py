@@ -55,7 +55,7 @@ async def tracker_heartbeat_loop():
             writer.write(get_req.encode("utf-8"))
             await writer.drain()
 
-            response = await reader.read(-1)
+            response = await reader.read(1073152)
             print("[Tracker] GET response:")
             print(response.decode("utf-8"))
 
@@ -64,7 +64,7 @@ async def tracker_heartbeat_loop():
             await writer.drain()
 
             # Optional: Read tracker acknowledgment response (for debugging)
-            response = await reader.read(-1)
+            response = await reader.read(1073152)
             print("[Tracker] POST response:")
             print(response.decode("utf-8"))
 
@@ -101,7 +101,7 @@ async def request_list():
             await writer.drain()
 
             # Optional: Read tracker acknowledgment response (for debugging)
-            response = await reader.read(-1)
+            response = await reader.read(1073152)
             print(response.decode("utf-8"))
 
             writer.close()
@@ -127,7 +127,7 @@ async def handle_peer_connection(reader: asyncio.StreamReader, writer: asyncio.S
 
     try:
         # Read the file request from the peer
-        data = await reader.read(-1)
+        data = await reader.read(1073152)
         filename = data.decode().strip()
         print(f"[Network Event] Peer requested file: '{filename}'")
 
