@@ -1,8 +1,10 @@
-import sys      # Used so client can read from stdin
+import sys                                  # Used so client can read from stdin
 import socket
 
+from server_prototype1 import HTTPResponse  # to inherit Response class
+
 class HTTPRequest:
-    # Creates and encodes HTTP request to send to server
+    # Creates and encodes HTTP request to send to server or other peers
 
     def __init__(self, req: str, source_ip: str, dest_port: int):
         self.req = req
@@ -10,6 +12,7 @@ class HTTPRequest:
         self.path = None
         self.version = None
         self.headers = {}
+        self.body = None
         self.destination = None
         self.source_ip = source_ip
         self.dest_port = dest_port
@@ -32,7 +35,12 @@ class HTTPRequest:
 
         # Store header lines as key-value pairs
         for index, line in enumerate(lines[1:]):
+            # if end of headers, store body if there is one
             if line == "":
+                body_index = lines.index("") + 1
+                self.body = []
+                for body_elem in lines[body_index:]:
+                    self.body.append(body_elem)
                 break
 
             name, value = line.split(":", 1)
@@ -46,11 +54,7 @@ class HTTPRequest:
     def send_req(self):
         # Create TCP/IPv4 socket to communicate with server
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
-            # Bind socket to IP and port
-            # NOTE: appears to be redundant on the client side; just needs to connect
-            # client_socket.bind((self.source_ip, self.dest_port))
-
-            # Connect to server using destination IP
+            # Connect to server/peer using destination IP
             client_socket.connect(self.destination)
 
             # Send the HTTP request
@@ -66,6 +70,7 @@ class HTTPRequest:
 
             # Decode and return response
             return response.decode("utf-8")
+
 
 if __name__ == "__main__":
     # Declare source IP and outgoing port variables here manually
