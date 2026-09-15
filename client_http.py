@@ -2,7 +2,7 @@ import sys      # Used so client can read from stdin
 import socket
 
 class HTTPRequest:
-    # Creates and encodes HTTP request to send to server
+    # Creates and encodes HTTP request to send to server or other peers
 
     def __init__(self, req: str, source_ip: str, dest_port: int):
         self.req = req
@@ -10,6 +10,7 @@ class HTTPRequest:
         self.path = None
         self.version = None
         self.headers = {}
+        self.body = None
         self.destination = None
         self.source_ip = source_ip
         self.dest_port = dest_port
@@ -32,7 +33,12 @@ class HTTPRequest:
 
         # Store header lines as key-value pairs
         for index, line in enumerate(lines[1:]):
+            # if end of headers, store body if there is one
             if line == "":
+                body_index = lines.index("") + 1
+                self.body = []
+                for body_elem in lines[body_index:]:
+                    self.body.append(body_elem)
                 break
 
             name, value = line.split(":", 1)
