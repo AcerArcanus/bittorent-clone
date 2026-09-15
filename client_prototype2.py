@@ -6,7 +6,8 @@ from pathlib import Path
 import client_http as http
 
 HOST = '0.0.0.0'            # Local server bind address
-PORT = 8888                 # Local server listening port
+PORT = 8888                 # Port to listen for tracker messages
+P2P_PORT = 6767             # Port for listening for peer requests
 TRACKER_HOST = '127.0.0.1'  # Tracker server address
 TRACKER_PORT = 8080         # Tracker server port
 HEARTBEAT_INTERVAL = 30     # Send a heartbeat every 30 seconds
@@ -23,18 +24,6 @@ async def tracker_heartbeat_loop():
     """
     print(f"\n[*] Heartbeat task started. Tracking with {TRACKER_HOST}:{TRACKER_PORT}")
     print(f"\n[Peer Client]$ ")
-
-    # Send GET request to measure bandwidth
-    req = (
-        f"GET / HTTP/1.1\r\n"
-        f"Host: {TRACKER_HOST}\r\n"
-        f"Accept: text/*\r\n"
-        f"Connection: close\r\n"
-        f"\r\n"
-        )
-
-    get_req = http.HTTPRequest(req, HOST, PORT)
-    get_req.send_req()
 
     # Grab list of files from file-transfer directory
     files = [f.name for f in Path("file-transfer").iterdir()
@@ -62,11 +51,32 @@ async def tracker_heartbeat_loop():
             # Open a connection to send the heartbeat
             reader, writer = await asyncio.open_connection(TRACKER_HOST, TRACKER_PORT)
 
+            # Send GET request to measure bandwidth
+            get_req = (
+                f"GET /bandwidth HTTP/1.1\r\n"
+                f"Host: {TRACKER_HOST}\r\n"
+                f"Accept: text/*\r\n"
+                f"Connection: close\r\n"
+                f"\r\n"
+                )
+
+            writer.write(get_req.encode("utf-8"))
+            await writer.drain()
+
+            response = await reader.read(1024)
+            print("[Tracker] GET response:")
+            print(response.decode("utf-8"))
+
+            writer.close()
+            await writer.wait_closed()
+
+            # Send POST request
             writer.write(heartbeat_payload.encode("utf-8"))
             await writer.drain()
 
             # Optional: Read tracker acknowledgment response (for debugging)
             response = await reader.read(1024)
+            print("[Tracker] POST response:")
             print(response.decode("utf-8"))
 
             writer.close()
@@ -225,7 +235,8 @@ async def terminal_input_loop(server: asyncio.Server, heartbeat_task: asyncio.Ta
             print(f"(...or handle user asking for filename directly)")
 
         elif primary_cmd == "status":
-            print(f"-> [Status] Server is actively listening on {HOST}:{PORT}")
+            print(f"-> [Status] Server is actively listening on {HOST}:{PORT} for tracker server")
+            print(f"-> [Status] Server is actively listening on {HOST}:{P2P_PORT} for peers")
             print(f"-> [Status] Server serving connections: {server.is_serving()}")
             print(f"-> [Status] Tracker Heartbeat: Running every {HEARTBEAT_INTERVAL}s")
 
@@ -238,7 +249,7 @@ async def terminal_input_loop(server: asyncio.Server, heartbeat_task: asyncio.Ta
 
 async def main(client_ip = HOST, client_port = PORT):
     # 1. Start the background socket server to listen for peers
-    server = await asyncio.start_server(handle_peer_connection, HOST, PORT)
+    server = await asyncio.start_server(handle_peer_connection, HOST, P2P_PORT)
     print(f"[*] P2P File Server started on {client_ip}:{client_port}")
 
     # 2. Spawn the heartbeat loop as a background task
