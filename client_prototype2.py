@@ -1,6 +1,7 @@
 import asyncio
 import sys
 import json
+from pathlib import Path
 
 import client_http
 
@@ -13,11 +14,18 @@ HEARTBEAT_INTERVAL = 30     # Send a heartbeat every 30 seconds
 async def tracker_heartbeat_loop():
     # TODO: code here is designed to work with json messages;
     #       this should be changed to work with HTTP instead
+    #
+    # During the heartbeat, send a POST/provide request to tell the server
+    # files available for download from the client
     """
     Background task that periodically registers/pings the tracker server.
     Runs continuously without interrupting network handling or terminal inputs.
     """
     print(f"[*] Heartbeat task started. Tracking with {TRACKER_HOST}:{TRACKER_PORT}")
+
+    # Grab list of files from file-transfer directory
+    files = [f.name for f in Path("file-transfer").iterdir()
+             if f.is_file() and f.name != ".gitignore"]
 
     # Payload telling the tracker who we are and what port we are listening on
     heartbeat_payload = {
@@ -29,7 +37,7 @@ async def tracker_heartbeat_loop():
 
     while True:
         try:
-            # Open a quick connection to send the heartbeat
+            # Open a connection to send the heartbeat
             reader, writer = await asyncio.open_connection(TRACKER_HOST, TRACKER_PORT)
 
             writer.write(message)
@@ -54,6 +62,8 @@ async def tracker_heartbeat_loop():
         await asyncio.sleep(HEARTBEAT_INTERVAL)
 
 async def handle_peer_connection(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+    # TODO: listen for HTTP request using ClientHTTP,
+    #       send response with requested file
     """
     Triggered automatically whenever a peer connects to request a file.
     Runs concurrently without blocking the terminal input loop.
@@ -81,6 +91,7 @@ async def handle_peer_connection(reader: asyncio.StreamReader, writer: asyncio.S
         await writer.wait_closed()
 
 async def request_file_from_peer(host: str, port: int, filename: str):
+    # TODO: use ClientHTTP to send HTTP request (GET?) to other peer
     """
     Connects to a peer, requests a file, and prints the response.
     """
@@ -145,6 +156,7 @@ async def terminal_input_loop(server: asyncio.Server, heartbeat_task: asyncio.Ta
             break
 
         elif primary_cmd == "list":
+            # TODO: send HTTP request to server to get list of hosts/files
             print(f"-> Files available for download:")
             print(f"(list files from tracker server here)")
 
@@ -160,6 +172,7 @@ async def terminal_input_loop(server: asyncio.Server, heartbeat_task: asyncio.Ta
             print(f"-> [Status] Tracker Heartbeat: Running every {HEARTBEAT_INTERVAL}s")
 
         elif primary_cmd == "help":
+            # TODO: flesh out help output with short description of each command
             print("-> [Available Commands]: list, request, status, help, exit")
 
         else:

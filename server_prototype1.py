@@ -87,6 +87,11 @@ class User:
         self.source_port = source_port
         self.bandwidth = bandwidth #in bytes per second
 
+    def __repr__(self):
+        return (
+            f"({self.source_ip}, {self.source_port}, {self.bandwidth})"
+        )
+
 class HTTPServer:
 #server itself
 
@@ -98,6 +103,7 @@ class HTTPServer:
         self.server = None
         self.running = False
 
+        #a dict of lists
         self.data_dict = {}
         self.bandwidth_dict = {}
 
@@ -259,6 +265,7 @@ class HTTPServer:
         return response
 
     def post(self, request, address):
+        #matches IP to bandwidth
         bandwidth = self.bandwidth_dict[address[0]]
         body_parts = []
         #splits by the spaces inbetween
@@ -297,14 +304,36 @@ class HTTPServer:
 
         #requesting list of data
         elif body_parts[0] == "request" and body_parts[1] == "list":
+            #joins the data keys by adding , inbetween
+            file_names = ", ".join(self.data_dict.keys())
             return HTTPResponse(
-
-                body = f"{self.data_dict}",
+                #returns only keys in the dict (file names)
+                body = f"{file_names}",
                 status_code = 200, status_text = "OK"
 
             )
 
+        elif body_parts[0] == "depart":
+            client_ip = address[0]
+
+            #make a separate list of keys to delete from, allowing for safe deletion of dict keys
+            for i in list(self.data_dict.keys()):
+                #for each user in a list of users for this file, place that user in a new list
+                #places users in that list if the IP doesn't match the client sending the request
+                self.data_dict[i] = [user for user in self.data_dict[i] if user.source_ip != client_ip]
+                #deletes file list if it is empty
+                if not self.data_dict[i]:
+                    del self.data_dict[i]
+
+            return HTTPResponse(
+                body = f"Departed successfully",
+                status_code = 200, status_text = "OK"
+            )
+
+
         #requesting list of people who have that data
+        #if the software that is requested is in the dictionary
+        #it will respond with the dictionary objects that contain the IP, port, and bandwidth
         else:
             if body_parts [1] in self.data_dict:
                 return HTTPResponse(
@@ -323,6 +352,6 @@ class HTTPServer:
                 )
 
 
-if __name__ == "__main__":
-    server = HTTPServer()
-    server.start()
+
+server = HTTPServer()
+server.start()
