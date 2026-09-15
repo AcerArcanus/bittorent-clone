@@ -55,7 +55,7 @@ async def tracker_heartbeat_loop():
             writer.write(get_req.encode("utf-8"))
             await writer.drain()
 
-            response = await reader.read(1024)
+            response = await reader.read(4096)
             print("[Tracker] GET response:")
             print(response.decode("utf-8"))
 
@@ -64,7 +64,7 @@ async def tracker_heartbeat_loop():
             await writer.drain()
 
             # Optional: Read tracker acknowledgment response (for debugging)
-            response = await reader.read(1024)
+            response = await reader.read(4096)
             print("[Tracker] POST response:")
             print(response.decode("utf-8"))
 
