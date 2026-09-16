@@ -4,12 +4,13 @@ from pathlib import Path
 
 import client_http as http
 
-HOST = '0.0.0.0'            # Local server bind address
-PORT = 8888                 # Port to listen for tracker messages
-P2P_PORT = 6767             # Port for listening for peer requests
-TRACKER_HOST = '127.0.0.1'  # Tracker server address
-TRACKER_PORT = 8080         # Tracker server port
-HEARTBEAT_INTERVAL = 30     # Send a heartbeat every 30 seconds
+HOST = '0.0.0.0'                  # Local server bind address
+PORT = 8888                       # Port to listen for tracker messages
+P2P_PORT = 6767                   # Port for listening for peer requests
+TRACKER_HOST = '127.0.0.1'        # Tracker server address
+TRACKER_PORT = 8080               # Tracker server port
+HEARTBEAT_INTERVAL = 30           # Send a heartbeat every 30 seconds
+FILE_DIR = Path("file-transfer")  # Directory for files to be sent/received
 
 # used to keep track of connections so that they can remain
 # persistent outside and between function calls
@@ -94,7 +95,7 @@ async def tracker_heartbeat_loop(conn: ConnectionManager):
     print(f"\n[Peer Client]$ ")
 
     # Grab list of files from file-transfer directory
-    files = [f.name for f in Path("file-transfer").iterdir()
+    files = [f.name for f in FILE_DIR.iterdir()
              if f.is_file() and f.name != ".gitignore"]
 
     # POST/provide request telling tracker who we are and what files we have
@@ -240,7 +241,8 @@ async def request_file_from_peer(host: str, port: int, filename: str):
         response = await reader.read(-1)
 
         if response:
-            print(f"\n[Peer Response]:\n{response.decode().strip()}")
+            FILE_DIR
+            print(f"\n[Peer Response]: '{filename}' received successfully")
         else:
             print("\n[-] Peer closed the connection without sending data.")
 
