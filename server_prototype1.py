@@ -42,7 +42,7 @@ class HTTPRequest:
 
             name, value = line.split(":", 1)
             self.headers[name.strip()] = value.strip()
-        #commented out, parse has been changed
+            #helps remove whitespace from the name & value
 
 class HTTPResponse:
     #creates HTTP response
@@ -72,21 +72,21 @@ class HTTPResponse:
 
         connection = "keep_alive" if self.keep_alive else "close"
 
-        #creates the response from variables, can vary depending on situation
+        #creates the HTTP headers
         response = (
             f"HTTP/1.1 {self.status_code} {self.status_text}\r\n"
             f"Content-Type: {self.content_type}\r\n"
             f"Content-Length: {len(body_bytes)}\r\n"
             f"Connection: {connection}\r\n"
         )
-        #adds each header to response
+        #adds extra custom headers from HTTPResponse
         for name, value in self.headers.items():
             response += f"{name}: {value}\r\n"
-        #headers get placed here
 
         #blank line between header and body
         response += "\r\n"
 
+        #encodes the response and adds already encoded body bytes
         return response.encode("utf-8") + body_bytes
 
 
@@ -97,6 +97,7 @@ class User:
         self.source_port = source_port
         self.bandwidth = bandwidth #in bytes per second
 
+    #string representation of what is inside the user object
     def __repr__(self):
         return (
             f"({self.source_ip}, {self.source_port}, {self.bandwidth})"
@@ -105,10 +106,9 @@ class User:
 class HTTPServer:
 #server itself
 
-    def __init__(self, host="127.0.0.1", port=8080, backlog=5):
+    def __init__(self, host="127.0.0.1", port=8080):
         self.host = host
         self.port = port
-        self.backlog = backlog
 
         self.server = None
         self.running = False
@@ -140,7 +140,7 @@ class HTTPServer:
                 "The port may already be in use."
             )
 
-        self.server.listen(self.backlog)
+        self.server.listen(5)
         #listens for requests
 
         self.running = True
@@ -165,7 +165,7 @@ class HTTPServer:
 
                 #creates a separate thread for each client
                 client_thread = threading.Thread(
-                    #name of the fcn thread will run
+                    #when a new thread arrives, handle the client
                     target = self.handle_client,
                     #tuple containing socket & IP address
                     args = (client, address)
@@ -207,6 +207,7 @@ class HTTPServer:
                     if not data:
                         return
 
+                    #stores all the data in the buffer
                     buffer += data
 
                 #find where the headers end
@@ -309,6 +310,7 @@ class HTTPServer:
             client.close()
             print(f"Connection closed: {address}")
 
+    #client is never used, but it needs to be passed for methods to work
     def handle_request(self, request, address, client):
         #decides which method handles its appropriate request
 
@@ -422,7 +424,7 @@ class HTTPServer:
             #make a temp list of keys to delete from, allowing for safe deletion of dict keys
             for i in list(self.data_dict.keys()):
 
-                #keep only users that don't match departing client's IP & port
+                #creates a new list that contains only users that don't match departing client's IP & port
                 self.data_dict[i] = [user for user in self.data_dict[i] if
                     not (user.source_ip == client_ip and user.source_port == client_port)]
 
@@ -438,7 +440,7 @@ class HTTPServer:
 
         #requesting list of people who have that data
         #if the software that is requested is in the dictionary
-        #it will respond with the dictionary objects that contain the IP, port, and bandwidth
+        #it will respond a list of objects that contain the IP, port, and bandwidth
         else:
 
             #in case it has less than 2 parameters in body_parts
@@ -453,7 +455,7 @@ class HTTPServer:
 
                 body = f"{self.data_dict[body_parts[1]]}",
                 status_code = 200, status_text = "OK"
-
+                #uses repr to send user information from within that list
                 )
 
             else:
