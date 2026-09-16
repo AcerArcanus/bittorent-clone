@@ -58,9 +58,7 @@ class ConnectionManager:
 
         for line in header.decode("utf-8").split("\r\n"):
             if line.lower().startswith("content-length:"):
-                content_length = int(
-                    line.split(":", 1)[1].strip()
-                )
+                content_length = int(line.split(":", 1)[1].strip())
                 break
 
         body_start = header_end + 4
@@ -170,24 +168,44 @@ async def request_list(conn: ConnectionManager):
     try:
         # Use pre-existing tracker connection to send the list request
         response = await conn.send(req_payload)
+        response = response.decode("utf_8")
 
-        # response_body = get_body(response)
+        response_body = get_body(response)
 
-        # if response_body == "":
-            # pass
-
-        # else:
-            # print(f"-> Files available for download:")
+        if response_body == []:
+            print("-> No files available for download")
+        else:
+            print(f"-> Files available for download:")
+            for index, file in enumerate(response_body):
+                print(f"{index:>2}:  {file}")
 
         # Optional: Read raw tracker acknowledgment response (for debugging)
-        print("LIST RESPONSE:")
-        print(response)
+        # print("LIST RESPONSE:")
+        # print(response)
 
     except (ConnectionRefusedError, OSError):
         # Fail silently or log so a down tracker doesn't crash the client
         sys.stdout.write("\n[Tracker Error] Unable to get list from tracker\n\n[Peer Client]$ ")
         sys.stdout.flush()
 
+def get_body(response: str) -> list:
+    # Parses an HTTP response for its body and returns it as a list
+    # (Should also work for request bodies as well)
+    body = []
+    lines = response.split("\r\n")
+
+    try:
+        body_index = lines.index("") + 1
+        body_items = lines[body_index].split(", ")
+        loop_index = 0
+        while body_items[loop_index] != "":
+            body.append(body_items[loop_index])
+            loop_index += 1
+
+        return body
+
+    except IndexError:
+        return body
 
 async def handle_peer_connection(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
     # TODO: listen for HTTP request using ClientHTTP,
