@@ -39,18 +39,19 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 #peer prompts user to send file over to peer
 #inputs: filename, port, IP, 
 
+"""
 #create static IP and port variables
 srcIP = "192.168.10.58"
 srcPort = 5500
 
 #creates socket that uses IPv4 and TCP
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
     #bind socket to IP and port
-    s.bind((srcIP, srcPort))
+    sock.bind((srcIP, srcPort))
     #connect to server using IP
-    s.connect(("192.168.10.55", 8080))#server IP
+    sock.connect(("192.168.10.55", 8080))#server IP
     #then send a post request of all available files?
-     
+"""  
 
 class peerComm:
     def __init__(self, srcIP, srcPort, fileName): #ip and port would likely be initialized earlier
