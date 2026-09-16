@@ -19,10 +19,69 @@ class ConnectionManager:
         self.port = port
         self.reader = None
         self.writer = None
-        self.task = None    # task might be useful for keeping connection alive
 
     async def connect(self):
-        self.reader, self.writer = await asyncio(open_connection(self.host, self.port))
+        if self.writer is not None:
+            return
+
+        self.reader, self.writer = await asyncio.open_connection(self.host, self.port)
+
+        print(f"[+] Connected to tracker at {self.host}:{self.port}")
+
+    async def send(self, request):
+        if self.writer is None:
+            raise ConnectionError("Not connected to tracker.")
+
+        self.writer.write(request.encode("utf-8"))
+        await self.writer.drain()
+
+        return await self.read_response()
+
+    async def read_response(self):
+        # Read until HTTP headers are complete
+        response_buffer = b""
+
+        while b"\r\n\r\n" not in response_buffer:
+            data = await self.reader.read(1073152)
+
+            if not data:
+                raise ConnectionError("Tracker closed the connection.")
+
+            response_buffer += data
+
+        header_end = response_buffer.find(b"\r\n\r\n")
+        header = response_buffer[:header_end + 4]
+
+        # Find Content-Length
+        content_length = 0
+
+        for line in header.decode("utf-8").split("\r\n"):
+            if line.lower().startswith("content-length:"):
+                content_length = int(
+                    line.split(":", 1)[1].strip()
+                )
+                break
+
+        body_start = header_end + 4
+
+        # Read until the complete body has arrived
+        while len(response_buffer) - body_start < content_length:
+            data = await self.reader.read(4096)
+
+            if not data:
+                raise ConnectionError("Tracker closed the connection.")
+
+            response_buffer += data
+
+        return response_buffer[:body_start + content_length]
+
+    async def close(self):
+        if self.writer is not None:
+            self.writer.close()
+            await self.writer.wait_closed()
+
+        self.writer = None
+        self.reader = None
 
 async def tracker_heartbeat_loop(conn: ConnectionManager):
     # During the heartbeat, send a POST/provide request to tell the server
@@ -52,9 +111,8 @@ async def tracker_heartbeat_loop(conn: ConnectionManager):
         f"Content-Length: {len(body_bytes)}\r\n"
         f"Connection: keep_alive\r\n"
         f"\r\n"
+        + body
         )
-
-    heartbeat_payload += body
 
     try:
         # Send GET request to measure bandwidth
@@ -67,22 +125,19 @@ async def tracker_heartbeat_loop(conn: ConnectionManager):
             )
 
         # Use pre-existing connection
-        conn.writer.write(get_req.encode("utf-8"))
-        await conn.writer.drain()
+        get_response = await conn.send(get_req)
 
-        response = await conn.reader.read(1073152)
-        print("[Tracker] GET response:")
-        print(response.decode("utf-8"))
+        # Print response (if needed for debugging)
+        # print("[Tracker] GET response:")
+        # print(get_response)
 
         # Send POST request in while loop
         while True:
-            conn.writer.write(heartbeat_payload.encode("utf-8"))
-            await conn.writer.drain()
+            heartbeat_response = await conn.send(heartbeat_payload)
 
             # Optional: Read tracker acknowledgment response (for debugging)
-            response = await conn.reader.read(1073152)
-            print("[Tracker] POST response:")
-            print(response.decode("utf-8"))
+            # print("[Tracker] POST response:")
+            # print(heartbeat_response)
 
             # Print a subtle visual indicator or log
             # sys.stdout.write("\n[Tracker] Heartbeat acknowledged.\n\n[Peer Client]$ ")
@@ -98,6 +153,9 @@ async def tracker_heartbeat_loop(conn: ConnectionManager):
 
 async def request_list(conn: ConnectionManager):
     # POST/request request asking for list of files from tracker
+    body = "request\r\nlist\r\n"
+    body_bytes = body.encode("utf-8")
+
     req_payload = (
         f"POST / HTTP/1.1\r\n"
         f"Host: {TRACKER_HOST}\r\n"
@@ -105,27 +163,30 @@ async def request_list(conn: ConnectionManager):
         f"Content-Length: 15\r\n"
         f"Connection: keep_alive\r\n"
         f"\r\n"
-        f"request\r\n"
-        f"list\r\n"
+        + body
         )
 
-    while True:
-        try:
-            # Use pre-existing tracker connection to send the list request
-            conn.writer.write(req_payload.encode("utf-8"))
-            await conn.writer.drain()
+    try:
+        # Use pre-existing tracker connection to send the list request
+        response = await conn.send(req_payload)
 
-            # Optional: Read tracker acknowledgment response (for debugging)
-            response = await conn.reader.read(1073152)
-            print(response.decode("utf-8"))
+        # response_body = get_body(response)
 
-        except (ConnectionRefusedError, OSError):
-            # Fail silently or log so a down tracker doesn't crash the client
-            sys.stdout.write("\n[Tracker Error] Unable to get list from tracker\n\n[Peer Client]$ ")
-            sys.stdout.flush()
+        # if response_body == "":
+            # pass
 
-        # Sleep asynchronously in case of timeout
-        await asyncio.sleep(10)
+        # else:
+            # print(f"-> Files available for download:")
+
+        # Optional: Read raw tracker acknowledgment response (for debugging)
+        print("LIST RESPONSE:")
+        print(response)
+
+    except (ConnectionRefusedError, OSError):
+        # Fail silently or log so a down tracker doesn't crash the client
+        sys.stdout.write("\n[Tracker Error] Unable to get list from tracker\n\n[Peer Client]$ ")
+        sys.stdout.flush()
+
 
 async def handle_peer_connection(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
     # TODO: listen for HTTP request using ClientHTTP,
@@ -203,7 +264,8 @@ def get_terminal_input():
     sys.stdout.flush()
     return sys.stdin.readline().strip()
 
-async def terminal_input_loop(server: asyncio.Server, heartbeat_task: asyncio.Task):
+async def terminal_input_loop(server: asyncio.Server, heartbeat_task: asyncio.Task,
+                              conn: ConnectionManager):
     """Asynchronously captures terminal inputs and maps them to client commands."""
     loop = asyncio.get_running_loop()
     print("Terminal input active. Type 'list', 'request', 'status', 'help', or 'exit'.")
@@ -227,8 +289,7 @@ async def terminal_input_loop(server: asyncio.Server, heartbeat_task: asyncio.Ta
 
         elif primary_cmd == "list":
             # TODO: send HTTP request to server to get list of hosts/files
-            print(f"-> Files available for download:")
-            await request_list()
+            await request_list(conn)
 
         elif primary_cmd == "request":
             # TODO: Do we want user to say filename, or give list of numbers to choose?
@@ -254,14 +315,28 @@ async def main(client_ip = HOST, client_port = PORT):
     server = await asyncio.start_server(handle_peer_connection, HOST, P2P_PORT)
     print(f"[*] P2P File Server started on {client_ip}:{client_port}")
 
-    # 2. Spawn the heartbeat loop as a background task
+    # 2. Initialize persistent connection with tracker, and
+    #    spawn the heartbeat loop as a background task
     tracker_conn = ConnectionManager(TRACKER_HOST, TRACKER_PORT)
-    tracker_conn.connect()
-    heartbeat_task = asyncio.create_task(tracker_heartbeat_loop(tracker_conn))
 
-    # 3. Keep the terminal input loop running
-    async with server:
-        await terminal_input_loop(server, heartbeat_task)
+    try:
+        await tracker_conn.connect()
+        heartbeat_task = asyncio.create_task(tracker_heartbeat_loop(tracker_conn))
+
+        # 3. Keep the terminal input loop running
+        async with server:
+            await terminal_input_loop(server, heartbeat_task, tracker_conn)
+
+    # 4. If input loop is escaped, program is ending; kill conns/tasks
+    finally:
+        heartbeat_task.cancel()
+
+        try:
+            await heartbeat_task
+        except asyncio.CancelledError:
+            pass
+
+        await tracker_conn.close()
 
 if __name__ == "__main__":
     # TODO: allow option for host IP and port to be passed in by the user when
