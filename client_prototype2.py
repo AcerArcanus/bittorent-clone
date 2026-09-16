@@ -22,7 +22,7 @@ class ConnectionManager:
         self.task = None    # task might be useful for keeping connection alive
 
     async def connect(self):
-        self.reader, self.writer = await asyncio(open_connection(self.host, self.port)
+        self.reader, self.writer = await asyncio(open_connection(self.host, self.port))
 
 async def tracker_heartbeat_loop(conn: ConnectionManager):
     # During the heartbeat, send a POST/provide request to tell the server
